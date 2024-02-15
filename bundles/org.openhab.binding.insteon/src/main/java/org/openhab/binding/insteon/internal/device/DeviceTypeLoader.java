@@ -12,209 +12,306 @@
  */
 package org.openhab.binding.insteon.internal.device;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.insteon.internal.device.DeviceType.FeatureGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.w3c.dom.Document;
+import org.openhab.binding.insteon.internal.device.DeviceType.CommandEntry;
+import org.openhab.binding.insteon.internal.device.DeviceType.DefaultLinkEntry;
+import org.openhab.binding.insteon.internal.device.DeviceType.FeatureEntry;
+import org.openhab.binding.insteon.internal.utils.HexUtils;
+import org.openhab.binding.insteon.internal.utils.ResourceLoader;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 /**
- * Reads the device types from an xml file.
+ * The {@link DeviceTypeLoader} represents device type loader
  *
  * @author Daniel Pfrommer - Initial contribution
  * @author Bernd Pfrommer - openHAB 1 insteonplm binding
  * @author Rob Nielsen - Port to openHAB 2 insteon binding
+ * @author Jeremy Setton - Rewrite insteon binding
  */
 @NonNullByDefault
-public class DeviceTypeLoader {
-    private static final Logger logger = LoggerFactory.getLogger(DeviceTypeLoader.class);
-    private Map<String, DeviceType> deviceTypes = new HashMap<>();
-    private static DeviceTypeLoader deviceTypeLoader = new DeviceTypeLoader();
+public class DeviceTypeLoader extends ResourceLoader {
+    private static final DeviceTypeLoader DEVICE_TYPE_LOADER = new DeviceTypeLoader();
+    private static final String RESOURCE_NAME = "/device_types.xml";
 
-    private DeviceTypeLoader() {
-    } // private so nobody can call it
+    private Map<String, DeviceType> deviceTypes = new LinkedHashMap<>();
+    private Map<String, FeatureEntry> baseFeatures = new LinkedHashMap<>();
 
     /**
-     * Finds the device type for a given product key
+     * Returns the device type for a given name
      *
-     * @param aProdKey product key to search for
+     * @param name device type name to search for
      * @return the device type, or null if not found
      */
-    public @Nullable DeviceType getDeviceType(String aProdKey) {
-        return (deviceTypes.get(aProdKey));
+    public @Nullable DeviceType getDeviceType(@Nullable String name) {
+        return deviceTypes.get(name);
     }
 
     /**
-     * Must call loadDeviceTypesXML() before calling this function!
+     * Returns known device types
      *
      * @return currently known device types
      */
     public Map<String, DeviceType> getDeviceTypes() {
-        return (deviceTypes);
+        return deviceTypes;
     }
 
     /**
-     * Reads the device types from input stream and stores them in memory for
-     * later access.
-     *
-     * @param in the input stream from which to read
+     * Initializes device type loader
      */
-    public void loadDeviceTypesXML(InputStream in) throws ParserConfigurationException, SAXException, IOException {
-        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-        // see https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
-        dbFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        dbFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        dbFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        dbFactory.setXIncludeAware(false);
-        dbFactory.setExpandEntityReferences(false);
-        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-        Document doc = dBuilder.parse(in);
-        doc.getDocumentElement().normalize();
-        Node root = doc.getDocumentElement();
-        NodeList nodes = root.getChildNodes();
-        for (int i = 0; i < nodes.getLength(); i++) {
-            Node node = nodes.item(i);
-            if (node.getNodeType() == Node.ELEMENT_NODE && "device".equals(node.getNodeName())) {
-                processDevice((Element) node);
+    @Override
+    protected void initialize() {
+        super.initialize();
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("loaded {} device types", deviceTypes.size());
+            if (logger.isTraceEnabled()) {
+                deviceTypes.values().stream().map(String::valueOf).forEach(logger::trace);
             }
         }
     }
 
     /**
-     * Reads the device types from file and stores them in memory for later access.
+     * Returns device type resource name
+     */
+    @Override
+    protected String getResourceName() {
+        return RESOURCE_NAME;
+    }
+
+    /**
+     * Parses device type document
      *
-     * @param aFileName The name of the file to read from
-     * @throws ParserConfigurationException
+     * @param element element to parse
      * @throws SAXException
      * @throws IOException
      */
-    public void loadDeviceTypesXML(String aFileName) throws ParserConfigurationException, SAXException, IOException {
-        File file = new File(aFileName);
-        InputStream in = new FileInputStream(file);
-        loadDeviceTypesXML(in);
+    @Override
+    protected void parseDocument(Element element) throws SAXException, IOException {
+        NodeList nodes = element.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element child = (Element) node;
+                String nodeName = child.getNodeName();
+                if ("device-type".equals(nodeName)) {
+                    parseDeviceType(child);
+                } else if ("base-features".equals(nodeName)) {
+                    parseBaseFeatures(child);
+                }
+            }
+        }
     }
 
     /**
-     * Process device node
+     * Parses device type node
      *
-     * @param e name of the element to process
+     * @param element element to parse
      * @throws SAXException
      */
-    private void processDevice(Element e) throws SAXException {
-        String productKey = e.getAttribute("productKey");
-        if ("".equals(productKey)) {
-            throw new SAXException("device in device_types file has no product key!");
+    private void parseDeviceType(Element element) throws SAXException {
+        String name = element.getAttribute("name");
+        if ("".equals(name)) {
+            throw new SAXException("device type in device_types file has no name!");
         }
-        if (deviceTypes.containsKey(productKey)) {
-            logger.warn("overwriting previous definition of device {}", productKey);
-            deviceTypes.remove(productKey);
+        if (deviceTypes.containsKey(name)) {
+            logger.warn("overwriting previous definition of device type {}", name);
+            deviceTypes.remove(name);
         }
-        DeviceType devType = new DeviceType(productKey);
+        Map<String, Boolean> flags = getFlags(element);
+        Map<String, FeatureEntry> features = new LinkedHashMap<>();
+        Map<String, DefaultLinkEntry> links = new LinkedHashMap<>();
 
-        NodeList nodes = e.getChildNodes();
+        NodeList nodes = element.getChildNodes();
         for (int i = 0; i < nodes.getLength(); i++) {
             Node node = nodes.item(i);
-            if (node.getNodeType() != Node.ELEMENT_NODE) {
-                continue;
-            }
-            Element subElement = (Element) node;
-            String nodeName = subElement.getNodeName();
-            if ("model".equals(nodeName)) {
-                devType.setModel(subElement.getTextContent());
-            } else if ("description".equals(nodeName)) {
-                devType.setDescription(subElement.getTextContent());
-            } else if ("feature".equals(nodeName)) {
-                processFeature(devType, subElement);
-            } else if ("feature_group".equals(nodeName)) {
-                processFeatureGroup(devType, subElement);
-            }
-            deviceTypes.put(productKey, devType);
-        }
-    }
-
-    private String processFeature(DeviceType devType, Element e) throws SAXException {
-        String name = e.getAttribute("name");
-        if ("".equals(name)) {
-            throw new SAXException("feature " + e.getNodeName() + " has feature without name!");
-        }
-        if (!name.equals(name.toLowerCase())) {
-            throw new SAXException("feature name '" + name + "' must be lower case");
-        }
-        if (!devType.addFeature(name, e.getTextContent())) {
-            throw new SAXException("duplicate feature: " + name);
-        }
-        return (name);
-    }
-
-    private String processFeatureGroup(DeviceType devType, Element e) throws SAXException {
-        String name = e.getAttribute("name");
-        if ("".equals(name)) {
-            throw new SAXException("feature group " + e.getNodeName() + " has no name attr!");
-        }
-        String type = e.getAttribute("type");
-        if ("".equals(type)) {
-            throw new SAXException("feature group " + e.getNodeName() + " has no type attr!");
-        }
-        FeatureGroup fg = new FeatureGroup(name, type);
-        NodeList nodes = e.getChildNodes();
-        for (int i = 0; i < nodes.getLength(); i++) {
-            Node node = nodes.item(i);
-            if (node.getNodeType() != Node.ELEMENT_NODE) {
-                continue;
-            }
-            Element subElement = (Element) node;
-            String nodeName = subElement.getNodeName();
-            if ("feature".equals(nodeName)) {
-                fg.addFeature(processFeature(devType, subElement));
-            } else if ("feature_group".equals(nodeName)) {
-                fg.addFeature(processFeatureGroup(devType, subElement));
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element child = (Element) node;
+                String nodeName = child.getNodeName();
+                if ("feature".equals(nodeName)) {
+                    parseFeature(child, features);
+                } else if ("feature-group".equals(nodeName)) {
+                    parseFeatureGroup(child, features);
+                } else if ("default-link".equals(nodeName)) {
+                    parseDefaultLink(child, links);
+                }
             }
         }
-        if (!devType.addFeatureGroup(name, fg)) {
-            throw new SAXException("duplicate feature group " + name);
+        // add base features if device type not network brige or x10 categories
+        if (!name.startsWith("NetworkBridge") && !name.startsWith("X10")) {
+            baseFeatures.forEach(features::putIfAbsent);
         }
-        return (name);
+        deviceTypes.put(name, new DeviceType(name, flags, features, links));
     }
 
     /**
-     * Singleton instance function, creates DeviceTypeLoader
+     * Parses base features node
+     *
+     * @param element element to parse
+     * @throws SAXException
+     */
+    private void parseBaseFeatures(Element element) throws SAXException {
+        if (!baseFeatures.isEmpty()) {
+            throw new SAXException("base features have already been loaded");
+        }
+
+        NodeList nodes = element.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element child = (Element) node;
+                String nodeName = child.getNodeName();
+                if ("feature".equals(nodeName)) {
+                    parseFeature(child, baseFeatures);
+                }
+            }
+        }
+    }
+
+    /**
+     * Parses feature node
+     *
+     * @param element element to parse
+     * @param features features map to update
+     * @return the parsed feature name
+     * @throws SAXException
+     */
+    private String parseFeature(Element element, Map<String, FeatureEntry> features) throws SAXException {
+        String name = element.getAttribute("name");
+        if ("".equals(name)) {
+            throw new SAXException("undefined feature name");
+        }
+        String type = element.getTextContent();
+        if (type == null) {
+            throw new SAXException("undefined feature type");
+        }
+        Map<String, String> params = getParameters(element, List.of("name"));
+        FeatureEntry feature = new FeatureEntry(name, type, params);
+        if (features.putIfAbsent(name, feature) != null) {
+            throw new SAXException("duplicate feature: " + name);
+        }
+        return name;
+    }
+
+    /**
+     * Parses feature group node
+     *
+     * @param element element to parse
+     * @param features features map to update
+     * @throws SAXException
+     */
+    private void parseFeatureGroup(Element element, Map<String, FeatureEntry> features) throws SAXException {
+        String name = element.getAttribute("name");
+        if ("".equals(name)) {
+            throw new SAXException("undefined feature group name");
+        }
+        String type = element.getAttribute("type");
+        if ("".equals(type)) {
+            throw new SAXException("undefined feature group type");
+        }
+        Map<String, String> params = getParameters(element, List.of("name", "type"));
+        FeatureEntry feature = new FeatureEntry(name, type, params);
+        if (features.putIfAbsent(name, feature) != null) {
+            throw new SAXException("duplicate feature group: " + name);
+        }
+
+        NodeList nodes = element.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element child = (Element) node;
+                String nodeName = child.getNodeName();
+                if ("feature".equals(nodeName)) {
+                    feature.addConnectedFeature(parseFeature(child, features));
+                }
+            }
+        }
+    }
+
+    /**
+     * Parses default link
+     *
+     * @param element element to parse
+     * @param links links map to update
+     * @throws SAXException
+     */
+    private void parseDefaultLink(Element element, Map<String, DefaultLinkEntry> links) throws SAXException {
+        String name = element.getAttribute("name");
+        if ("".equals(name)) {
+            throw new SAXException("undefined default link name");
+        }
+        boolean isController = "controller".equals(element.getAttribute("type"));
+        int group = getAttributeAsInteger(element, "group");
+        if (group <= 0 || group >= 255) {
+            throw new SAXException("out of bound default link group: " + group);
+        }
+        byte[] data = { getHexAttributeAsByte(element, "data1"), getHexAttributeAsByte(element, "data2"),
+                getHexAttributeAsByte(element, "data3") };
+
+        DefaultLinkEntry link = new DefaultLinkEntry(name, isController, group, data);
+
+        NodeList nodes = element.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element child = (Element) node;
+                String nodeName = child.getNodeName();
+                if ("command".equals(nodeName)) {
+                    link.addCommand(getDefaultLinkCommand(child));
+                }
+            }
+        }
+
+        if (links.putIfAbsent(name, link) != null) {
+            throw new SAXException("duplicate default link: " + name);
+        }
+    }
+
+    /**
+     * Returns a default link command
+     *
+     * @param element element to parse
+     * @return default link command
+     * @throws SAXException
+     */
+    private CommandEntry getDefaultLinkCommand(Element element) throws SAXException {
+        String name = element.getAttribute("name");
+        if ("".equals(name)) {
+            throw new SAXException("undefined default link command name");
+        }
+        int ext = getAttributeAsInteger(element, "ext");
+        if (ext < 0 || ext > 2) {
+            throw new SAXException("out of bound default link command ext argument: " + ext);
+        }
+        byte cmd1 = getHexAttributeAsByte(element, "cmd1");
+        if (cmd1 == 0) {
+            throw new SAXException("invalid default link command cmd1 argument: " + HexUtils.getHexString(cmd1));
+        }
+        byte cmd2 = getHexAttributeAsByte(element, "cmd2", (byte) 0x00);
+        byte[] data = { getHexAttributeAsByte(element, "data1", (byte) 0x00),
+                getHexAttributeAsByte(element, "data2", (byte) 0x00),
+                getHexAttributeAsByte(element, "data3", (byte) 0x00) };
+
+        return new CommandEntry(name, ext, cmd1, cmd2, data);
+    }
+
+    /**
+     * Singleton instance function
      *
      * @return DeviceTypeLoader singleton reference
      */
-    @Nullable
     public static synchronized DeviceTypeLoader instance() {
-        if (deviceTypeLoader.getDeviceTypes().isEmpty()) {
-            InputStream input = DeviceTypeLoader.class.getResourceAsStream("/device_types.xml");
-            try {
-                if (input != null) {
-                    deviceTypeLoader.loadDeviceTypesXML(input);
-                } else {
-                    logger.warn("Resource stream is null, cannot read xml file.");
-                }
-            } catch (ParserConfigurationException e) {
-                logger.warn("parser config error when reading device types xml file: ", e);
-            } catch (SAXException e) {
-                logger.warn("SAX exception when reading device types xml file: ", e);
-            } catch (IOException e) {
-                logger.warn("I/O exception when reading device types xml file: ", e);
-            }
+        if (DEVICE_TYPE_LOADER.getDeviceTypes().isEmpty()) {
+            DEVICE_TYPE_LOADER.initialize();
         }
-        return deviceTypeLoader;
+        return DEVICE_TYPE_LOADER;
     }
 }
