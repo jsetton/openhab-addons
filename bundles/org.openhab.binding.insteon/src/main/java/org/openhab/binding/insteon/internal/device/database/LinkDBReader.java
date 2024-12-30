@@ -26,6 +26,7 @@ import org.openhab.binding.insteon.internal.transport.PortListener;
 import org.openhab.binding.insteon.internal.transport.message.FieldException;
 import org.openhab.binding.insteon.internal.transport.message.InvalidMessageTypeException;
 import org.openhab.binding.insteon.internal.transport.message.Msg;
+import org.openhab.binding.insteon.internal.transport.message.Priority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,7 @@ public class LinkDBReader implements PortListener {
     private @Nullable ScheduledFuture<?> job;
     private ByteArrayOutputStream stream = new ByteArrayOutputStream();
     private boolean done = true;
-    private long lastMsgReceived;
+    private volatile long lastMsgReceived;
     private int location;
     private int lastMSB;
 
@@ -54,7 +55,7 @@ public class LinkDBReader implements PortListener {
     }
 
     public boolean isRunning() {
-        return job != null;
+        return !done;
     }
 
     public void read(InsteonDevice device) {
@@ -63,19 +64,11 @@ public class LinkDBReader implements PortListener {
         this.device = device;
 
         getAllRecords();
-
-        job = scheduler.scheduleWithFixedDelay(() -> {
-            if (System.currentTimeMillis() - lastMsgReceived > DatabaseManager.MESSAGE_TIMEOUT) {
-                logger.debug("link database reader timed out for {}, aborting", device.getAddress());
-                done();
-            }
-        }, 0, 1000, TimeUnit.MILLISECONDS);
     }
 
     private void getAllRecords() {
-        lastMsgReceived = System.currentTimeMillis();
         done = false;
-
+        device.getLinkDB().clear();
         modem.getPort().registerListener(this);
 
         switch (device.getLinkDB().getReadWriteMode()) {
@@ -137,26 +130,24 @@ public class LinkDBReader implements PortListener {
     private void setMSBAddress(int msb) {
         try {
             Msg msg = Msg.makeStandardMessage(device.getAddress(), (byte) 0x28, (byte) msb);
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending set msb address query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending set msb address query", e);
         }
     }
 
     private void getPeekByte(int lsb) {
         try {
             Msg msg = Msg.makeStandardMessage(device.getAddress(), (byte) 0x2B, (byte) lsb);
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending peek query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending peek query", e);
         }
     }
 
@@ -164,14 +155,26 @@ public class LinkDBReader implements PortListener {
         try {
             Msg msg = Msg.makeExtendedMessage(device.getAddress(), (byte) 0x2F, (byte) 0x00,
                     device.getInsteonEngine().supportsChecksum());
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending get all link record query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending get all link record query", e);
         }
+    }
+
+    private void startAbortTimer() {
+        logger.trace("starting abort timer for {}", device.getAddress());
+
+        lastMsgReceived = System.currentTimeMillis();
+
+        job = scheduler.scheduleWithFixedDelay(() -> {
+            if (System.currentTimeMillis() - lastMsgReceived > DatabaseManager.MESSAGE_TIMEOUT) {
+                logger.debug("link database reader timed out for {}, aborting", device.getAddress());
+                done();
+            }
+        }, 0, 1000, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -184,12 +187,12 @@ public class LinkDBReader implements PortListener {
 
     @Override
     public void messageReceived(Msg msg) {
-        try {
-            if (!msg.isFromAddress(device.getAddress())) {
-                return;
-            }
-            lastMsgReceived = msg.getTimestamp();
+        if (!msg.isFromAddress(device.getAddress())) {
+            return;
+        }
+        lastMsgReceived = msg.getTimestamp();
 
+        try {
             if (msg.getCommand() == 0x50 && msg.getByte("command1") == 0x28) {
                 // we got a set msb address response
                 getNextPeekByte();
@@ -201,13 +204,22 @@ public class LinkDBReader implements PortListener {
                 handleRecordMsg(msg);
             }
         } catch (FieldException e) {
-            logger.warn("error parsing link db info reply field ", e);
+            logger.warn("error parsing message", e);
         }
     }
 
     @Override
     public void messageSent(Msg msg) {
-        // ignore outbound message
+        try {
+            if (msg.getCommand() == 0x62 && (msg.getByte("command1") == 0x28 || msg.getByte("command1") == 0x2F)) {
+                // we sent a set msb address or get aldb record message
+                if (!done && job == null) {
+                    startAbortTimer();
+                }
+            }
+        } catch (FieldException e) {
+            logger.warn("error parsing message", e);
+        }
     }
 
     private void addRecord(LinkDBRecord record) {

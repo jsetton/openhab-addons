@@ -26,6 +26,7 @@ import org.openhab.binding.insteon.internal.transport.PortListener;
 import org.openhab.binding.insteon.internal.transport.message.FieldException;
 import org.openhab.binding.insteon.internal.transport.message.InvalidMessageTypeException;
 import org.openhab.binding.insteon.internal.transport.message.Msg;
+import org.openhab.binding.insteon.internal.transport.message.Priority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,7 @@ public class LinkDBWriter implements PortListener {
     private @Nullable ScheduledFuture<?> job;
     private ByteArrayInputStream stream = new ByteArrayInputStream(new byte[0]);
     private boolean done = true;
-    private long lastMsgReceived;
+    private volatile long lastMsgReceived;
     private int location;
     private int lastMSB;
 
@@ -54,7 +55,7 @@ public class LinkDBWriter implements PortListener {
     }
 
     public boolean isRunning() {
-        return job != null;
+        return !done;
     }
 
     public void write(InsteonDevice device) {
@@ -63,19 +64,10 @@ public class LinkDBWriter implements PortListener {
         this.device = device;
 
         applyChanges();
-
-        job = scheduler.scheduleWithFixedDelay(() -> {
-            if (System.currentTimeMillis() - lastMsgReceived > DatabaseManager.MESSAGE_TIMEOUT) {
-                logger.debug("link database writer timed out for {}, aborting", device.getAddress());
-                done();
-            }
-        }, 0, 1000, TimeUnit.MILLISECONDS);
     }
 
     private void applyChanges() {
-        lastMsgReceived = System.currentTimeMillis();
         done = false;
-
         modem.getPort().registerListener(this);
 
         switch (device.getLinkDB().getReadWriteMode()) {
@@ -155,39 +147,36 @@ public class LinkDBWriter implements PortListener {
     private void setMSBAddress(int msb) {
         try {
             Msg msg = Msg.makeStandardMessage(device.getAddress(), (byte) 0x28, (byte) msb);
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending set msb address query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending set msb address query", e);
         }
     }
 
     private void setPokeByte(int value) {
         try {
             Msg msg = Msg.makeStandardMessage(device.getAddress(), (byte) 0x29, (byte) value);
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending poke query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending poke query", e);
         }
     }
 
     private void getPeekByte(int lsb) {
         try {
             Msg msg = Msg.makeStandardMessage(device.getAddress(), (byte) 0x2B, (byte) lsb);
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending peek query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending peek query", e);
         }
     }
 
@@ -206,14 +195,26 @@ public class LinkDBWriter implements PortListener {
             if (device.getInsteonEngine().supportsChecksum()) {
                 msg.setCRC();
             }
+            msg.setPriority(Priority.DATABASE);
             modem.writeMessage(msg);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         } catch (IOException e) {
-            logger.warn("error sending set database record query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
-        } catch (FieldException e) {
-            logger.warn("error parsing message ", e);
+            logger.warn("error sending set database record query", e);
         }
+    }
+
+    private void startAbortTimer() {
+        logger.trace("starting abort timer for {}", device.getAddress());
+
+        lastMsgReceived = System.currentTimeMillis();
+
+        job = scheduler.scheduleWithFixedDelay(() -> {
+            if (System.currentTimeMillis() - lastMsgReceived > DatabaseManager.MESSAGE_TIMEOUT) {
+                logger.debug("link database writer timed out for {}, aborting", device.getAddress());
+                done();
+            }
+        }, 0, 1000, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -226,12 +227,12 @@ public class LinkDBWriter implements PortListener {
 
     @Override
     public void messageReceived(Msg msg) {
-        try {
-            if (!msg.isFromAddress(device.getAddress())) {
-                return;
-            }
-            lastMsgReceived = msg.getTimestamp();
+        if (!msg.isFromAddress(device.getAddress())) {
+            return;
+        }
+        lastMsgReceived = msg.getTimestamp();
 
+        try {
             if (msg.getCommand() == 0x50 && (msg.getByte("command1") == 0x28 || msg.getByte("command1") == 0x29)) {
                 // we got a set msb address or poke byte response
                 setNextPokeByte();
@@ -243,13 +244,23 @@ public class LinkDBWriter implements PortListener {
                 setNextAllLinkRecord();
             }
         } catch (FieldException e) {
-            logger.warn("error parsing link db writer reply field ", e);
+            logger.warn("error parsing message", e);
         }
     }
 
     @Override
     public void messageSent(Msg msg) {
-        // ignore outbound message
+        try {
+            if (msg.getCommand() == 0x62 && (msg.getByte("command1") == 0x28 || msg.getByte("command1") == 0x2F)) {
+                // we sent a set msb address or set aldb record message
+                if (!done && job == null) {
+                    startAbortTimer();
+                }
+
+            }
+        } catch (FieldException e) {
+            logger.warn("error parsing message", e);
+        }
     }
 
     private void handlePeekByte(byte b) {

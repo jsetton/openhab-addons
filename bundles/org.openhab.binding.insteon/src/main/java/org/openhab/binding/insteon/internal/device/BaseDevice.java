@@ -450,6 +450,8 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
         InsteonModem modem = getModem();
         if (modem != null) {
             modem.getRequestManager().addQueue(this, delay);
+        } else {
+            logger.trace("unable to schedule request because modem not defined for {}", address);
         }
     }
 
@@ -632,7 +634,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
     public void requestSent(Msg msg, long time) {
         DeviceFeature feature = getFeatureQueried();
         if (feature != null && msg.equals(feature.getQueryMessage())) {
-            // mark feature queried as pending
+            // mark feature queried as sent
             feature.setQueryStatus(QueryStatus.QUERY_SENT);
             // set last request sent time
             lastRequestSent = time;
@@ -696,7 +698,11 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
 
         @Override
         public int compareTo(DeviceRequest other) {
-            return (int) (expirationTime - other.expirationTime);
+            int result = msg.getPriority().compareTo(other.msg.getPriority());
+            if (result == 0) {
+                result = (int) (expirationTime - other.expirationTime);
+            }
+            return result;
         }
     }
 }

@@ -42,6 +42,7 @@ public class Msg {
 
     private final byte[] data;
     private final MsgDefinition definition;
+    private Priority priority;
     private long quietTime = 0;
     private boolean replayed = false;
     private long timestamp = System.currentTimeMillis();
@@ -49,6 +50,7 @@ public class Msg {
     public Msg(byte[] data, MsgDefinition definition) {
         this.data = Arrays.copyOf(data, definition.getLength());
         this.definition = definition;
+        this.priority = definition.getDirection() == Direction.TO_MODEM ? Priority.COMMAND : Priority.NULL;
     }
 
     public Msg(MsgDefinition definition) {
@@ -69,6 +71,10 @@ public class Msg {
 
     public Direction getDirection() {
         return definition.getDirection();
+    }
+
+    public Priority getPriority() {
+        return priority;
     }
 
     public long getQuietTime() {
@@ -115,10 +121,6 @@ public class Msg {
         return getDirection() == Direction.TO_MODEM;
     }
 
-    public boolean isEcho() {
-        return isPureNack() || isReply();
-    }
-
     public boolean isReply() {
         return containsField("ACK/NACK");
     }
@@ -139,8 +141,8 @@ public class Msg {
         }
     }
 
-    public boolean isReplyOf(Msg msg) {
-        return isReply() && Arrays.equals(msg.getData(), Arrays.copyOf(data, msg.getLength()));
+    public boolean isReplyOf(@Nullable Msg msg) {
+        return msg != null && isReply() && Arrays.equals(msg.getData(), Arrays.copyOf(data, msg.getLength()));
     }
 
     public boolean isFailureReport() {
@@ -221,6 +223,10 @@ public class Msg {
 
     public boolean isReplayed() {
         return replayed;
+    }
+
+    public void setPriority(Priority priority) {
+        this.priority = priority;
     }
 
     public void setQuietTime(long quietTime) {
