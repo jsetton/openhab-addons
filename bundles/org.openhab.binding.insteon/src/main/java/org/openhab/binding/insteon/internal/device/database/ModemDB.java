@@ -71,9 +71,21 @@ public class ModemDB {
         }
     }
 
+    private ModemDBEntry getOrAddEntry(InsteonAddress address) {
+        synchronized (dbes) {
+            return Objects.requireNonNull(dbes.computeIfAbsent(address, k -> new ModemDBEntry(k, this)));
+        }
+    }
+
     public boolean hasEntry(InsteonAddress address) {
         synchronized (dbes) {
             return dbes.containsKey(address);
+        }
+    }
+
+    private void deleteEntry(InsteonAddress address) {
+        synchronized (dbes) {
+            dbes.remove(address);
         }
     }
 
@@ -214,10 +226,12 @@ public class ModemDB {
      */
     public void addRecord(ModemDBRecord record) {
         InsteonAddress address = record.getAddress();
-        ModemDBEntry dbe = getEntry(address);
-        if (dbe == null) {
-            dbe = new ModemDBEntry(address, this);
-            dbes.put(address, dbe);
+        ModemDBEntry dbe = getOrAddEntry(address);
+
+        int index = getRecordIndex(record);
+        if (index != -1) {
+            logger.trace("duplicate record: {}", record);
+            return;
         }
 
         synchronized (records) {
@@ -250,7 +264,7 @@ public class ModemDB {
         }
 
         if (!dbe.hasRecords()) {
-            dbes.remove(address);
+            deleteEntry(address);
         } else if (record.isController()) {
             dbe.removeControllerGroup(record.getGroup());
         } else if (record.isResponder()) {
@@ -488,11 +502,12 @@ public class ModemDB {
      */
     private void logEntries() {
         if (logger.isDebugEnabled()) {
-            if (getEntries().isEmpty()) {
+            List<ModemDBEntry> dbes = getEntries();
+            if (dbes.isEmpty()) {
                 logger.debug("modem database is empty");
             } else {
                 logger.debug("modem database has {} entries:", dbes.size());
-                getEntries().stream().map(String::valueOf).forEach(logger::debug);
+                dbes.stream().map(String::valueOf).forEach(logger::debug);
                 if (logger.isTraceEnabled()) {
                     logger.trace("---------------- start of modem link records ----------------");
                     getRecords().stream().map(String::valueOf).forEach(logger::trace);
@@ -540,7 +555,6 @@ public class ModemDB {
      */
     public void recordsLoaded() {
         logEntries();
-        setIsComplete(true);
     }
 
     /**
@@ -560,11 +574,7 @@ public class ModemDB {
      * @param productData the product data to set
      */
     public void setProductData(InsteonAddress address, ProductData productData) {
-        ModemDBEntry dbe = getEntry(address);
-        if (dbe == null) {
-            dbe = new ModemDBEntry(address, this);
-            dbes.put(address, dbe);
-        }
+        ModemDBEntry dbe = getOrAddEntry(address);
 
         dbe.setProductData(productData);
 

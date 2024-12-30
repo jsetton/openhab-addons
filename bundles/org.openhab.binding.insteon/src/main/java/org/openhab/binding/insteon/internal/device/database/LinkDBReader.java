@@ -44,7 +44,7 @@ public class LinkDBReader implements PortListener {
     private @Nullable ScheduledFuture<?> job;
     private ByteArrayOutputStream stream = new ByteArrayOutputStream();
     private boolean done = true;
-    private long lastMsgReceived;
+    private volatile long lastMsgReceived;
     private int location;
     private int lastMSB;
 
