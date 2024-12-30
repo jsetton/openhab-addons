@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.insteon.internal.device;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -275,7 +274,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
      * @param delay scheduling delay (in milliseconds)
      */
     @Override
-    public void doPoll(long delay) {
+    public void poll(long delay) {
         schedulePoll(delay, feature -> true);
     }
 
@@ -286,8 +285,8 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
      * @param delay scheduling delay (in milliseconds)
      * @return poll message
      */
-    public @Nullable Msg pollFeature(String name, long delay) {
-        return Optional.ofNullable(getFeature(name)).map(feature -> feature.doPoll(delay)).orElse(null);
+    protected @Nullable Msg pollFeature(String name, long delay) {
+        return Optional.ofNullable(getFeature(name)).map(feature -> feature.poll(delay)).orElse(null);
     }
 
     /**
@@ -306,7 +305,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
             }
             // poll feature with listeners or never queried before
             if (feature.hasListeners() || feature.getQueryStatus() == QueryStatus.NEVER_QUERIED) {
-                Msg msg = feature.doPoll(delay + spacing);
+                Msg msg = feature.poll(delay + spacing);
                 if (msg != null) {
                     spacing += msg.getQuietTime();
                 }
@@ -423,7 +422,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
      */
     @Override
     public void sendMessage(Msg msg, DeviceFeature feature, long delay) {
-        addDeviceRequest(msg, feature, delay);
+        addRequest(msg, feature, delay);
     }
 
     /**
@@ -433,7 +432,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
      * @param feature device feature that sent this message
      * @param delay time (in milliseconds) to delay before sending message
      */
-    protected void addDeviceRequest(Msg msg, DeviceFeature feature, long delay) {
+    protected void addRequest(Msg msg, DeviceFeature feature, long delay) {
         logger.trace("enqueuing request with delay {} msec", delay);
 
         synchronized (requestQueue) {
@@ -476,6 +475,8 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
             // get requested feature and message
             DeviceFeature feature = request.getFeature();
             Msg msg = request.getMessage();
+            // update message timestamp
+            msg.setTimestamp(now);
             // remove request from queue hash
             requestQueueHash.remove(msg);
             // set last request queued time
@@ -495,19 +496,17 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
             // write message
             InsteonModem modem = getModem();
             if (modem != null) {
-                try {
-                    modem.writeMessage(msg);
-                } catch (IOException e) {
-                    logger.warn("message write failed for msg: {}", msg, e);
-                }
+                modem.writeMessage(msg);
             }
             // determine the wait time for the next request
-            long quietTime = msg.getQuietTime();
-            long nextExpTime = Optional.ofNullable(requestQueue.peek()).map(DeviceRequest::getExpirationTime)
-                    .orElse(0L);
-            long nextTime = Math.max(now + quietTime, nextExpTime);
-            logger.trace("next request queue processed in {} msec, quiettime {} msec", nextTime - now, quietTime);
-            return nextTime;
+            DeviceRequest nextRequest = requestQueue.peek();
+            waitTime = now + msg.getQuietTime();
+            if (nextRequest != null) {
+                waitTime = Math.max(waitTime, nextRequest.getExpirationTime());
+                nextRequest.setExpirationTime(waitTime);
+            }
+            logger.trace("next request scheduled in {} msec", waitTime - now);
+            return waitTime;
         }
     }
 
@@ -593,7 +592,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
         feature.setQueryStatus(QueryStatus.NEVER_QUERIED);
         // poll feature again if device is responding
         if (isResponding()) {
-            feature.doPoll(0L);
+            feature.poll(0L);
         }
         // notify status changed if failed request count at threshold
         if (failedRequestCount == FAILED_REQUEST_THRESHOLD) {
@@ -634,7 +633,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
     public void requestSent(Msg msg, long time) {
         DeviceFeature feature = getFeatureQueried();
         if (feature != null && msg.equals(feature.getQueryMessage())) {
-            // mark feature queried as pending
+            // mark feature queried as sent
             feature.setQueryStatus(QueryStatus.QUERY_SENT);
             // set last request sent time
             lastRequestSent = time;
@@ -677,7 +676,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
         public DeviceRequest(DeviceFeature feature, Msg msg, long delay) {
             this.feature = feature;
             this.msg = msg;
-            setExpirationTime(delay);
+            setExpirationDelay(delay);
         }
 
         public DeviceFeature getFeature() {
@@ -692,13 +691,21 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
             return expirationTime;
         }
 
-        public void setExpirationTime(long delay) {
+        public void setExpirationDelay(long delay) {
             this.expirationTime = System.currentTimeMillis() + delay;
+        }
+
+        public void setExpirationTime(long expirationTime) {
+            this.expirationTime = expirationTime;
         }
 
         @Override
         public int compareTo(DeviceRequest other) {
-            return (int) (expirationTime - other.expirationTime);
+            int result = msg.getPriority().compareTo(other.msg.getPriority());
+            if (result == 0) {
+                result = (int) (expirationTime - other.expirationTime);
+            }
+            return result;
         }
     }
 }

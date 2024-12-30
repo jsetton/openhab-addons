@@ -284,7 +284,7 @@ public class DeviceFeature {
 
     public boolean isPollable() {
         PollHandler pollHandler = getPollHandler();
-        return pollHandler != null && pollHandler.makeMsg() != null;
+        return pollHandler != null && pollHandler.getMessage() != null;
     }
 
     public @Nullable DeviceFeature getGroupFeature() {
@@ -519,18 +519,18 @@ public class DeviceFeature {
     }
 
     /**
-     * Makes a poll message using the configured poll message handler
+     * Returns poll message using the configured poll handler
      *
      * @return the poll message
      */
-    public @Nullable Msg makePollMsg() {
+    public @Nullable Msg getPollMessage() {
         PollHandler pollHandler = getPollHandler();
         if (pollHandler == null) {
             return null;
         }
         logger.trace("{}:{} making poll msg using handler {}", device.getAddress(), name,
                 pollHandler.getClass().getSimpleName());
-        return pollHandler.makeMsg();
+        return pollHandler.getMessage();
     }
 
     /**
@@ -577,13 +577,13 @@ public class DeviceFeature {
             delay = getPollDelay();
         }
         // trigger feature poll if pollable
-        if (doPoll(delay) != null) {
+        if (poll(delay) != null) {
             logger.trace("{}:{} triggered poll on this feature", device.getAddress(), name);
             return;
         }
         // trigger group feature poll if defined and pollable, as fallback
         DeviceFeature groupFeature = getGroupFeature();
-        if (groupFeature != null && groupFeature.doPoll(delay) != null) {
+        if (groupFeature != null && groupFeature.poll(delay) != null) {
             logger.trace("{}:{} triggered poll on group feature {}", device.getAddress(), name, groupFeature.getName());
             return;
         }
@@ -614,13 +614,13 @@ public class DeviceFeature {
     }
 
     /**
-     * Executes the polling of this feature
+     * Polls this feature
      *
      * @param delay scheduling delay (in milliseconds)
      * @return poll message
      */
-    public @Nullable Msg doPoll(long delay) {
-        Msg msg = makePollMsg();
+    public @Nullable Msg poll(long delay) {
+        Msg msg = getPollMessage();
         if (msg != null) {
             device.sendMessage(msg, this, delay);
         }
