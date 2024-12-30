@@ -273,7 +273,7 @@ public class PollManager {
 
         @Override
         public int compareTo(PQEntry other) {
-            return (int) (expirationTime - other.expirationTime);
+            return Long.compare(expirationTime, other.expirationTime);
         }
 
         @Override

@@ -309,7 +309,6 @@ public class LinkDB {
         } else if (dbm == null) {
             logger.debug("unable to load link db for {}, database manager not available", device.getAddress());
         } else {
-            clear();
             setStatus(DatabaseStatus.LOADING);
             dbm.read(device, delay);
         }

@@ -14,7 +14,6 @@ package org.openhab.binding.insteon.internal.device;
 
 import static org.openhab.binding.insteon.internal.InsteonBindingConstants.*;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -477,7 +476,7 @@ public class InsteonDevice extends BaseDevice<InsteonAddress, InsteonDeviceHandl
     @Override
     public void sendMessage(Msg msg, DeviceFeature feature, long delay) {
         if (isAwake()) {
-            addDeviceRequest(msg, feature, delay);
+            addRequest(msg, feature, delay);
         } else {
             addDeferredRequest(msg, feature);
         }
@@ -500,9 +499,9 @@ public class InsteonDevice extends BaseDevice<InsteonAddress, InsteonDeviceHandl
                     Msg msg = request.getMessage();
                     DeviceFeature feature = request.getFeature();
                     deferredQueueHash.remove(msg);
-                    request.setExpirationTime(delay);
+                    request.setExpirationDelay(delay);
                     logger.trace("enqueuing deferred request for {}", feature.getName());
-                    addDeviceRequest(msg, feature, delay);
+                    addRequest(msg, feature, delay);
                 }
             }
         }
@@ -720,13 +719,8 @@ public class InsteonDevice extends BaseDevice<InsteonAddress, InsteonDeviceHandl
         InsteonModem modem = getModem();
         if (modem != null) {
             getMissingDeviceLinks().keySet().stream().map(this::getDefaultLink).filter(Objects::nonNull)
-                    .map(Objects::requireNonNull).flatMap(link -> link.getCommands().stream()).forEach(msg -> {
-                        try {
-                            modem.writeMessage(msg);
-                        } catch (IOException e) {
-                            logger.warn("message write failed for msg: {}", msg, e);
-                        }
-                    });
+                    .map(Objects::requireNonNull).flatMap(link -> link.getCommands().stream())
+                    .forEach(modem::writeMessage);
         }
     }
 
@@ -893,7 +887,7 @@ public class InsteonDevice extends BaseDevice<InsteonAddress, InsteonDeviceHandl
                 // poll database delta feature
                 pollFeature(FEATURE_DATABASE_DELTA, 0L);
                 // poll remaining features for this device
-                doPoll(0L);
+                doPoll(500L);
             }
             // log missing links
             logMissingLinks();

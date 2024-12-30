@@ -22,6 +22,7 @@ import org.openhab.binding.insteon.internal.device.InsteonAddress;
 import org.openhab.binding.insteon.internal.transport.message.FieldException;
 import org.openhab.binding.insteon.internal.transport.message.InvalidMessageTypeException;
 import org.openhab.binding.insteon.internal.transport.message.Msg;
+import org.openhab.binding.insteon.internal.transport.message.Priority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +61,6 @@ public abstract class PollHandler extends BaseFeatureHandler {
             int cmd1 = getParameterAsInteger("cmd1", 0);
             int cmd2 = getParameterAsInteger("cmd2", 0);
             int ext = getParameterAsInteger("ext", -1);
-            long quietTime = getParameterAsLong("quiet", -1);
             try {
                 // make message based on feature parameters
                 if (ext == 0) {
@@ -78,14 +78,17 @@ public abstract class PollHandler extends BaseFeatureHandler {
                 } else {
                     logger.warn("{}: handler misconfigured, no valid ext field specified", nm());
                 }
-                // override default message quiet time if parameter specified
-                if (msg != null && quietTime >= 0) {
-                    msg.setQuietTime(quietTime);
+                if (msg != null) {
+                    long quietTime = getParameterAsLong("quiet", -1);
+                    // override default message quiet time if parameter specified
+                    if (quietTime >= 0) {
+                        msg.setQuietTime(quietTime);
+                    }
+                    // set message priority to poll
+                    msg.setPriority(Priority.POLL);
                 }
-            } catch (FieldException e) {
-                logger.warn("error setting field in msg: ", e);
-            } catch (InvalidMessageTypeException e) {
-                logger.warn("invalid message ", e);
+            } catch (FieldException | InvalidMessageTypeException e) {
+                logger.warn("error creating message", e);
             }
             return msg;
         }
@@ -102,13 +105,9 @@ public abstract class PollHandler extends BaseFeatureHandler {
             int cmd = getParameterAsInteger("cmd", 0);
             try {
                 msg = Msg.makeMessage((byte) cmd);
-                byte[] data = msg.getData();
-                int headerLength = msg.getHeaderLength();
-                for (int i = headerLength; i < data.length; i++) {
-                    data[i] = (byte) getParameterAsInteger("d" + (i - headerLength + 1), 0);
-                }
+                msg.setPriority(Priority.POLL);
             } catch (InvalidMessageTypeException e) {
-                logger.warn("invalid message ", e);
+                logger.warn("error creating message", e);
             }
             return msg;
         }

@@ -382,8 +382,6 @@ public class DebugCommand extends InsteonCommand implements PortListener {
                 console.println(msg.toString());
             } catch (FieldException | InvalidMessageTypeException | NumberFormatException e) {
                 console.println("Error while trying to create message.");
-            } catch (IOException e) {
-                console.println("Failed to send message.");
             }
         }
     }
@@ -417,8 +415,6 @@ public class DebugCommand extends InsteonCommand implements PortListener {
                 console.println(msg.toString());
             } catch (FieldException | InvalidMessageTypeException | NumberFormatException e) {
                 console.println("Error while trying to create message.");
-            } catch (IOException e) {
-                console.println("Failed to send message.");
             }
         }
     }
@@ -443,8 +439,6 @@ public class DebugCommand extends InsteonCommand implements PortListener {
                 console.println(mcmd.toString());
             } catch (FieldException | InvalidMessageTypeException | NumberFormatException e) {
                 console.println("Error while trying to create message.");
-            } catch (IOException e) {
-                console.println("Failed to send message.");
             }
         }
     }
@@ -469,8 +463,6 @@ public class DebugCommand extends InsteonCommand implements PortListener {
                 console.println("Too many data bytes provided.");
             } catch (InvalidMessageTypeException e) {
                 console.println("Error while trying to create message.");
-            } catch (IOException e) {
-                console.println("Failed to send message.");
             }
         }
     }

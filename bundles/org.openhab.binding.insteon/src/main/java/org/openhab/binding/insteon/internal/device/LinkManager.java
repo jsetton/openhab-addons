@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.insteon.internal.device;
 
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -142,10 +141,19 @@ public class LinkManager implements PortListener {
     }
 
     public void stop() {
-        logger.debug("device linker finished for {}", address);
+        ScheduledFuture<?> job = this.job;
+        if (job != null) {
+            job.cancel(true);
+            this.job = null;
+        }
 
         modem.getRequestManager().resume();
         modem.getPort().unregisterListener(this);
+    }
+
+    private void done() {
+        logger.debug("device linker finished for {}", address);
+        done = true;
 
         if (!complete) {
             cancelModemLinking();
@@ -154,16 +162,6 @@ public class LinkManager implements PortListener {
                 cancelLinkingMode(address);
             }
         }
-
-        ScheduledFuture<?> job = this.job;
-        if (job != null) {
-            job.cancel(true);
-            this.job = null;
-        }
-    }
-
-    private void done() {
-        done = true;
         stop();
     }
 
@@ -173,12 +171,8 @@ public class LinkManager implements PortListener {
             msg.setByte("LinkCode", (byte) linkCode);
             msg.setByte("ALLLinkGroup", (byte) group);
             modem.writeMessage(msg);
-        } catch (FieldException e) {
-            logger.warn("cannot access field:", e);
-        } catch (IOException e) {
-            logger.warn("error sending start modem linking query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         }
     }
 
@@ -186,10 +180,8 @@ public class LinkManager implements PortListener {
         try {
             Msg msg = Msg.makeMessage("CancelALLLinking");
             modem.writeMessage(msg);
-        } catch (IOException e) {
-            logger.warn("error sending cancel modem linking query ", e);
         } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
+            logger.warn("error creating message", e);
         }
     }
 
@@ -197,12 +189,8 @@ public class LinkManager implements PortListener {
         try {
             Msg msg = Msg.makeExtendedMessage(address, (byte) 0x09, (byte) group, true);
             modem.writeMessage(msg);
-        } catch (FieldException e) {
-            logger.warn("cannot access field:", e);
-        } catch (IOException e) {
-            logger.warn("error sending linking mode query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         }
     }
 
@@ -210,12 +198,8 @@ public class LinkManager implements PortListener {
         try {
             Msg msg = Msg.makeStandardMessage(address, (byte) 0x08, (byte) 0x00);
             modem.writeMessage(msg);
-        } catch (FieldException e) {
-            logger.warn("cannot access field:", e);
-        } catch (IOException e) {
-            logger.warn("error sending cancel linking query ", e);
-        } catch (InvalidMessageTypeException e) {
-            logger.warn("invalid message ", e);
+        } catch (FieldException | InvalidMessageTypeException e) {
+            logger.warn("error creating message", e);
         }
     }
 
@@ -249,7 +233,7 @@ public class LinkManager implements PortListener {
                 handleLinkingStarted();
             }
         } catch (FieldException e) {
-            logger.warn("error parsing link db info reply field ", e);
+            logger.warn("error parsing message", e);
         }
     }
 
