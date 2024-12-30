@@ -324,6 +324,7 @@ public class Port {
                             Thread.sleep(RETRANSMIT_WAIT_TIME);
                             logger.trace("retransmitting msg: {}", msg);
                             ioStream.write(msg.getData());
+                            messageSent(msg);
                         }
                     }
                     // limit rate by waiting between writes to transport

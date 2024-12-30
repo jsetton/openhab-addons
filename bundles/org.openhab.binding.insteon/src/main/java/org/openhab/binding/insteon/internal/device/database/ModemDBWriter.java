@@ -40,7 +40,7 @@ public class ModemDBWriter implements PortListener {
     private ScheduledExecutorService scheduler;
     private @Nullable ScheduledFuture<?> job;
     private boolean done = true;
-    private long lastMsgReceived;
+    private volatile long lastMsgReceived;
 
     public ModemDBWriter(InsteonModem modem, ScheduledExecutorService scheduler) {
         this.modem = modem;

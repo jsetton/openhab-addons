@@ -587,7 +587,7 @@ public abstract class BaseDevice<@NonNull T extends DeviceAddress, @NonNull S ex
     public void requestSent(Msg msg, long time) {
         DeviceFeature feature = getFeatureQueried();
         if (feature != null && msg.equals(feature.getQueryMessage())) {
-            // mark feature queried as pending
+            // mark feature queried as sent
             feature.setQueryStatus(QueryStatus.QUERY_SENT);
             // set last request sent time
             lastRequestSent = time;
