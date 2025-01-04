@@ -242,11 +242,14 @@ public abstract class MessageDispatcher extends BaseFeatureHandler {
         @Override
         public boolean dispatch(Msg msg) {
             try {
-                byte cmd = msg.getByte("rawX10");
-                MessageHandler handler = feature.getOrDefaultMsgHandler(cmd);
-                logger.debug("{}:{}->{} X10", getX10Device().getAddress(), feature.getName(),
-                        handler.getClass().getSimpleName());
-                handler.handleMessage(cmd, msg);
+                if (msg.isX10Command()) {
+                    byte cmd = (byte) (msg.getByte("rawX10") & 0x0F);
+                    MessageHandler handler = feature.getOrDefaultMsgHandler(cmd);
+                    logger.debug("{}:{}->{} X10", getX10Device().getAddress(), feature.getName(),
+                            handler.getClass().getSimpleName());
+                    handler.handleMessage(cmd, msg);
+                    return true;
+                }
             } catch (FieldException e) {
                 logger.warn("error parsing, dropping msg {}", msg);
             }

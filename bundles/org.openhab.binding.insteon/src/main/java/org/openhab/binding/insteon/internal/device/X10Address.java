@@ -39,7 +39,7 @@ public class X10Address implements DeviceAddress {
     private final byte unitCode;
 
     public X10Address(byte address) {
-        this.houseCode = (byte) (address >> 4);
+        this.houseCode = (byte) (address >> 4 & 0x0F);
         this.unitCode = (byte) (address & 0x0F);
     }
 
