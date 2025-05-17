@@ -1506,15 +1506,24 @@ It shouldn't be used in most cases except during initial device configuration.
 Same goes with commands, the binding will queue up commands requested on these devices and send them during the awake time window.
 Only one command per channel is queued, this mean that subsequent requests will overwrite previous ones.
 
-### Heartbeat Timeout Monitor
+### Heartbeat Timeout
 
-Sensor devices that supports heartbeat have a timeout monitor.
-If no broadcast message is received within a specific interval, the associated thing status will go offline until the binding receives a broadcast message from that device.
-The heartbeat interval on most sensor devices is hard coded as 24 hours but some have the ability to change that interval through the `heartbeat-interval` channel.
-It is enabled by default on devices that supports that feature and will be disabled on devices that have the ability to turn off their heartbeat through the `heartbeat-on-off` channel.
-It is important that the heartbeat group (typically 4) is linked properly to the modem by using the `insteon device addMissingLinks` console command.
-Otherwise, if the link is missing, the timeout monitor will be disabled.
-If necessary, the heartbeat timeout monitor can be manually reset by disabling and re-enabling the associated device thing.
+Sensor devices that support heartbeats have a timeout.
+If a broadcast message is not received within a specific interval, the associated thing's status will change to offline.
+This status persists until the binding receives a broadcast message from that device.
+While most sensor devices have a hardcoded heartbeat interval of 24 hours, some allow modification via the `heartbeat-interval` channel.
+This timeout feature is enabled by default on supporting devices and disabled on devices that can have their heartbeat turned off using the `heartbeat-on-off` channel.
+Proper linking of the heartbeat group (typically group 4) to the modem is crucial; use the `insteon device addMissingLinks` console command to ensure this.
+If the link is missing, the timeout feature will be disabled.
+The heartbeat timeout can be manually reset, if necessary, by disabling and then re-enabling the associated device thing.
+
+### Response Timeout
+
+Non-battery powered devices have a response timeout.
+If a successful response message is not received from such a device within an hour, its associated thing status will change to offline.
+While the device is offline, the binding will ignore commands sent to it.
+This status persists until a valid response is received.
+The response timeout can be manually reset, if necessary, by disabling and then re-enabling the associated device thing.
 
 ## Related Devices
 
