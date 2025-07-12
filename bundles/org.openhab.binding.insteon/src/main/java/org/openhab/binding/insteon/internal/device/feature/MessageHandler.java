@@ -1624,26 +1624,6 @@ public abstract class MessageHandler extends BaseFeatureHandler {
     }
 
     /**
-     * Thermostat fan mode reply message handler
-     */
-    public static class ThermostatFanModeReplyHandler extends CustomMsgHandler {
-        ThermostatFanModeReplyHandler(DeviceFeature feature) {
-            super(feature);
-        }
-
-        @Override
-        protected @Nullable State getState(byte cmd1, double value) {
-            try {
-                ThermostatFanMode mode = ThermostatFanMode.valueOf((int) value);
-                return new StringType(mode.toString());
-            } catch (IllegalArgumentException e) {
-                logger.warn("{}: got unexpected fan mode reply: {}", nm(), HexUtils.getHexString((int) value));
-                return UnDefType.UNDEF;
-            }
-        }
-    }
-
-    /**
      * Thermostat humidifier dehumidifying message handler
      */
     public static class ThermostatHumidifierDehumidifyingMsgHandler extends CustomMsgHandler {
@@ -1706,26 +1686,6 @@ public abstract class MessageHandler extends BaseFeatureHandler {
     }
 
     /**
-     * Thermostat system mode reply message handler
-     */
-    public static class ThermostatSystemModeReplyHandler extends CustomMsgHandler {
-        ThermostatSystemModeReplyHandler(DeviceFeature feature) {
-            super(feature);
-        }
-
-        @Override
-        protected @Nullable State getState(byte cmd1, double value) {
-            try {
-                ThermostatSystemMode mode = ThermostatSystemMode.valueOf((int) value);
-                return new StringType(mode.toString());
-            } catch (IllegalArgumentException e) {
-                logger.warn("{}: got unexpected system mode reply: {}", nm(), HexUtils.getHexString((int) value));
-                return UnDefType.UNDEF;
-            }
-        }
-    }
-
-    /**
      * Thermostat system cooling message handler
      */
     public static class ThermostatSystemCoolingMsgHandler extends CustomMsgHandler {
@@ -1764,6 +1724,28 @@ public abstract class MessageHandler extends BaseFeatureHandler {
         @Override
         protected @Nullable State getState(byte cmd1, double value) {
             return new StringType(ThermostatSystemState.OFF.toString());
+        }
+    }
+
+    /**
+     * Termostat system state message handler
+     */
+    public static class ThermostatSystemStateMsgHandler extends CustomMsgHandler {
+        ThermostatSystemStateMsgHandler(DeviceFeature feature) {
+            super(feature);
+        }
+
+        @Override
+        protected @Nullable State getState(byte cmd1, double value) {
+            try {
+                ThermostatSystemMode mode = ThermostatSystemMode.fromStatus((int) value);
+                if (mode == ThermostatSystemMode.OFF) {
+                    return new StringType(ThermostatSystemState.OFF.toString());
+                }
+            } catch (IllegalArgumentException e) {
+                logger.warn("{}: got unexpected system mode status: {}", nm(), HexUtils.getHexString((int) value));
+            }
+            return null;
         }
     }
 
@@ -1826,26 +1808,6 @@ public abstract class MessageHandler extends BaseFeatureHandler {
                 return new StringType(mode.toString());
             } catch (IllegalArgumentException e) {
                 logger.warn("{}: got unexpected system mode status: {}", nm(), HexUtils.getHexString((int) value));
-                return UnDefType.UNDEF;
-            }
-        }
-    }
-
-    /**
-     * Venstar thermostat system mode message handler
-     */
-    public static class VenstarSystemModeReplyHandler extends CustomMsgHandler {
-        VenstarSystemModeReplyHandler(DeviceFeature feature) {
-            super(feature);
-        }
-
-        @Override
-        protected @Nullable State getState(byte cmd1, double value) {
-            try {
-                VenstarSystemMode mode = VenstarSystemMode.valueOf((int) value);
-                return new StringType(mode.toString());
-            } catch (IllegalArgumentException e) {
-                logger.warn("{}: got unexpected system mode reply: {}", nm(), HexUtils.getHexString((int) value));
                 return UnDefType.UNDEF;
             }
         }

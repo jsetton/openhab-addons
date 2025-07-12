@@ -690,8 +690,8 @@
 
 	<feature-type name="ThermostatCoolSetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after set point has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6C" field="command2" factor="0.5" scale="fahrenheit">CustomTemperatureMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="2" cmd1="0x2E" cmd2="0x02" d1="0x01" field="userData7"
 			scale="fahrenheit">CustomTemperatureMsgHandler</message-handler>
@@ -707,8 +707,8 @@
 	</feature-type>
 	<feature-type name="ThermostatHeatSetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after set point has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6D" field="command2" factor="0.5" scale="fahrenheit">CustomTemperatureMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="2" cmd1="0x2E" cmd2="0x02" d1="0x01" field="userData12"
 			scale="fahrenheit">CustomTemperatureMsgHandler</message-handler>
@@ -724,8 +724,8 @@
 	</feature-type>
 	<feature-type name="ThermostatSystemMode">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after system mode has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6B" field="command2">ThermostatSystemModeReplyHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="2" cmd1="0x2E" cmd2="0x02" d1="0x01" field="userData6"
 			mask="0xF0" rshift="4">ThermostatSystemModeMsgHandler</message-handler>
@@ -748,8 +748,8 @@
 	</feature-type>
 	<feature-type name="ThermostatFanMode">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after fan mode has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6B" field="command2">ThermostatFanModeReplyHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="2" cmd1="0x2E" cmd2="0x02" d1="0x01" field="userData6"
 			mask="0x0F">ThermostatFanModeMsgHandler</message-handler>
@@ -786,8 +786,8 @@
 	</feature-type>
 	<feature-type name="ThermostatBackLightDuration">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after backlight duration has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData10"
 			scale="second">CustomTimeMsgHandler</message-handler>
@@ -800,8 +800,8 @@
 	</feature-type>
 	<feature-type name="ThermostatACDelay">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after backlight duration has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData11"
 			scale="minute">CustomTimeMsgHandler</message-handler>
@@ -814,8 +814,8 @@
 	</feature-type>
 	<feature-type name="ThermostatEnergyOffset">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after energy offset has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d1="0x01" field="userData12"
 			scale="fahrenheit">CustomTemperatureMsgHandler</message-handler>
@@ -828,8 +828,8 @@
 	</feature-type>
 	<feature-type name="ThermostatOpFlags">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after op flags has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData13">CustomBitmaskMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
@@ -839,8 +839,8 @@
 	</feature-type>
 	<feature-type name="ThermostatTemperatureScale">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after temperature scale has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData13" bit="3">ThermostatTemperatureScaleMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
@@ -850,8 +850,8 @@
 	</feature-type>
 	<feature-type name="ThermostatTimeFormat">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after time format has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData13" bit="4">ThermostatTimeFormatMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
@@ -861,8 +861,8 @@
 	</feature-type>
 	<feature-type name="ThermostatDehumidifySetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after value has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" d3="0x01" field="userData4">CustomDimensionlessMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
@@ -873,8 +873,8 @@
 	</feature-type>
 	<feature-type name="ThermostatHumidifySetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after value has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" d3="0x01" field="userData5">CustomDimensionlessMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
@@ -885,8 +885,8 @@
 	</feature-type>
 	<feature-type name="ThermostatStage1Duration">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after value has been changed -->
-		<message-handler command="0x19">TriggerPollMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" d3="0x01" field="userData11"
 			scale="minute">CustomTimeMsgHandler</message-handler>
@@ -921,6 +921,11 @@
 		<message-handler command="0x11" group="2">ThermostatSystemHeatingMsgHandler</message-handler>
 		<!-- handles all-link broadcast message HEATING OFF -->
 		<message-handler command="0x13" group="2">ThermostatSystemOffMsgHandler</message-handler>
+		<!-- handles direct extended message after query -->
+		<message-handler command="0x2E" ext="2" cmd1="0x2E" cmd2="0x02" d1="0x01" field="userData6"
+			mask="0xF0" rshift="4">ThermostatSystemStateMsgHandler</message-handler>
+		<!-- handles out-of band status messages -->
+		<message-handler command="0x70" ext="0" cmd1="0x70" field="command2" mask="0x0F">ThermostatSystemStateMsgHandler</message-handler>
 		<message-handler default="true">NoOpMsgHandler</message-handler>
 		<command-handler default="true">NoOpCommandHandler</command-handler>
 		<poll-handler>NoPollHandler</poll-handler>
@@ -941,8 +946,8 @@
 
 	<feature-type name="VenstarCoolSetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after set point has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6C" field="command2" factor="0.5">VenstarTemperatureMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData6">VenstarTemperatureMsgHandler</message-handler>
 		<!-- handles out-of band status messages -->
@@ -957,8 +962,8 @@
 	</feature-type>
 	<feature-type name="VenstarHeatSetpoint">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after set point has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6D" field="command2" factor="0.5">VenstarTemperatureMsgHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData7">VenstarTemperatureMsgHandler</message-handler>
 		<!-- handles out-of band status messages -->
@@ -973,8 +978,8 @@
 	</feature-type>
 	<feature-type name="VenstarSystemMode">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after system mode has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6B" field="command2">VenstarSystemModeReplyHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData3">VenstarSystemModeMsgHandler</message-handler>
 		<!-- handles out-of band status messages -->
@@ -987,8 +992,8 @@
 	</feature-type>
 	<feature-type name="VenstarFanMode">
 		<message-dispatcher>DefaultDispatcher</message-dispatcher>
-		<!-- handles direct ack after fan mode has been changed -->
-		<message-handler command="0x19" ext="0" cmd1="0x6B" field="command2">ThermostatFanModeReplyHandler</message-handler>
+		<!-- handles direct ack after cmd request -->
+		<message-handler command="0x19" delay="5000">TriggerPollMsgHandler</message-handler>
 		<!-- handles direct extended message after query mask for second bit -->
 		<message-handler command="0x2E" ext="1" cmd1="0x2E" cmd2="0x00" d2="0x01" field="userData9"
 			mask="0x10" rshift="4">ThermostatFanModeMsgHandler</message-handler>
