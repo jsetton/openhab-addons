@@ -27,6 +27,8 @@ import org.openhab.binding.insteon.internal.device.DeviceFeature;
 import org.openhab.binding.insteon.internal.device.InsteonAddress;
 import org.openhab.binding.insteon.internal.device.InsteonDevice;
 import org.openhab.binding.insteon.internal.device.ProductData;
+import org.openhab.binding.insteon.internal.device.database.LinkDBChange;
+import org.openhab.binding.insteon.internal.device.database.LinkDBEntry;
 import org.openhab.binding.insteon.internal.device.database.LinkDBRecord;
 import org.openhab.binding.insteon.internal.device.database.ModemDBRecord;
 import org.openhab.binding.insteon.internal.device.feature.FeatureEnums.KeypadButtonToggleMode;
@@ -70,6 +72,7 @@ public class DeviceCommand extends InsteonCommand {
 
     private static final String ALL_OPTION = "--all";
     private static final String CONFIRM_OPTION = "--confirm";
+    private static final String RECORDS_OPTION = "--records";
 
     public DeviceCommand(InsteonCommandExtension commandExtension) {
         super(NAME, DESCRIPTION, commandExtension);
@@ -79,8 +82,8 @@ public class DeviceCommand extends InsteonCommand {
     public List<String> getUsages() {
         return List.of(
                 buildCommandUsage(LIST_ALL, "list configured Insteon/X10 devices with related channels and status"),
-                buildCommandUsage(LIST_DATABASE + " <thingId>",
-                        "list all-link database records and pending changes for a configured Insteon device"),
+                buildCommandUsage(LIST_DATABASE + " " + ALL_OPTION + "|<thingId> [" + RECORDS_OPTION + "]",
+                        "list all-link database summary or records and pending changes for a specific or all configured Insteon devices"),
                 buildCommandUsage(LIST_FEATURES + " <thingId>", "list features for a configured Insteon/X10 device"),
                 buildCommandUsage(LIST_PRODUCT_DATA + " <thingId>",
                         "list product data for a configured Insteon/X10 device"),
@@ -125,7 +128,17 @@ public class DeviceCommand extends InsteonCommand {
                 break;
             case LIST_DATABASE:
                 if (args.length == 2) {
-                    listDatabaseRecords(console, args[1]);
+                    if (ALL_OPTION.equals(args[1])) {
+                        listDatabaseSummary(console);
+                    } else {
+                        listDatabaseSummary(console, args[1]);
+                    }
+                } else if (args.length == 3 && RECORDS_OPTION.equals(args[2])) {
+                    if (ALL_OPTION.equals(args[1])) {
+                        listDatabaseRecords(console);
+                    } else {
+                        listDatabaseRecords(console, args[1]);
+                    }
                 } else {
                     printUsage(console, args[0]);
                 }
@@ -252,7 +265,11 @@ public class DeviceCommand extends InsteonCommand {
                     strings = getAllDeviceHandlers().map(InsteonThingHandler::getThingId).toList();
                     break;
                 case LIST_DATABASE:
-                    strings = getInsteonDeviceHandlers().map(InsteonDeviceHandler::getThingId).toList();
+                case LIST_MISSING_LINKS:
+                case ADD_MISSING_LINKS:
+                case REFRESH:
+                    strings = Stream.concat(Stream.of(ALL_OPTION),
+                            getInsteonDeviceHandlers().map(InsteonDeviceHandler::getThingId)).toList();
                     break;
                 case ADD_DATABASE_CONTROLLER:
                 case DELETE_DATABASE_CONTROLLER:
@@ -275,12 +292,6 @@ public class DeviceCommand extends InsteonCommand {
                         return device != null && !device.getLinkDB().getChanges().isEmpty();
                     }).map(InsteonDeviceHandler::getThingId).toList();
                     break;
-                case LIST_MISSING_LINKS:
-                case ADD_MISSING_LINKS:
-                case REFRESH:
-                    strings = Stream.concat(Stream.of(ALL_OPTION),
-                            getInsteonDeviceHandlers().map(InsteonDeviceHandler::getThingId)).toList();
-                    break;
                 case SET_BUTTON_RADIO_GROUP:
                 case CLEAR_BUTTON_RADIO_GROUP:
                     strings = getInsteonDeviceHandlers().filter(handler -> {
@@ -292,6 +303,9 @@ public class DeviceCommand extends InsteonCommand {
         } else if (cursorArgumentIndex == 2) {
             InsteonDevice device = getInsteonDevice(args[1]);
             switch (args[0]) {
+                case LIST_DATABASE:
+                    strings = List.of(RECORDS_OPTION);
+                    break;
                 case ADD_DATABASE_CONTROLLER:
                 case ADD_DATABASE_RESPONDER:
                     if (device != null) {
@@ -383,13 +397,46 @@ public class DeviceCommand extends InsteonCommand {
         }
     }
 
+    private void listDatabaseSummary(Console console) {
+        if (!getModem().getDB().isComplete()) {
+            console.println("The modem database is not loaded yet.");
+        } else {
+            getInsteonDeviceHandlers().forEach(handler -> listDatabaseSummary(console, handler.getThingId()));
+        }
+    }
+
+    private void listDatabaseSummary(Console console, String thingId) {
+        InsteonDevice device = getInsteonDevice(thingId);
+        if (device == null) {
+            console.println("The device " + thingId + " is not configured or enabled!");
+            return;
+        }
+        List<String> entries = device.getLinkDB().getEntries().stream()
+                .filter(LinkDBEntry::hasControllerOrResponderGroups).map(LinkDBEntry::toString).toList();
+        if (entries.isEmpty()) {
+            console.println("The all-link database for device " + device.getAddress() + " is empty");
+        } else {
+            console.println("The all-link database for device " + device.getAddress() + " contains " + entries.size()
+                    + " linked devices:" + (!device.getLinkDB().isComplete() ? " (Partial)" : ""));
+            print(console, entries);
+        }
+    }
+
+    private void listDatabaseRecords(Console console) {
+        if (!getModem().getDB().isComplete()) {
+            console.println("The modem database is not loaded yet.");
+        } else {
+            getInsteonDeviceHandlers().forEach(handler -> listDatabaseRecords(console, handler.getThingId()));
+        }
+    }
+
     private void listDatabaseRecords(Console console, String thingId) {
         InsteonDevice device = getInsteonDevice(thingId);
         if (device == null) {
             console.println("The device " + thingId + " is not configured or enabled!");
             return;
         }
-        List<String> records = device.getLinkDB().getRecords().stream().map(String::valueOf).toList();
+        List<String> records = device.getLinkDB().getRecords().stream().map(LinkDBRecord::toString).toList();
         if (records.isEmpty()) {
             console.println("The all-link database for device " + device.getAddress() + " is empty");
         } else {
@@ -406,7 +453,7 @@ public class DeviceCommand extends InsteonCommand {
             console.println("The device " + thingId + " is not configured or enabled!");
             return;
         }
-        List<String> changes = device.getLinkDB().getChanges().stream().map(String::valueOf).toList();
+        List<String> changes = device.getLinkDB().getChanges().stream().map(LinkDBChange::toString).toList();
         if (!changes.isEmpty()) {
             console.println("The all-link database for device " + device.getAddress() + " has " + changes.size()
                     + " pending changes:");

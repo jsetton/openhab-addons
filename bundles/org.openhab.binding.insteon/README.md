@@ -611,7 +611,7 @@ Usage: openhab:insteon modem switch <thingId> - switch Insteon modem bridge to u
 ```shell
 openhab> insteon device
 Usage: openhab:insteon device listAll - list configured Insteon/X10 devices with related channels and status
-Usage: openhab:insteon device listDatabase <thingId> - list all-link database records and pending changes for a configured Insteon device
+Usage: openhab:insteon device listDatabase --all|<thingId> [--records] - list all-link database summary or records and pending changes for a specific or all configured Insteon devices
 Usage: openhab:insteon device listFeatures <thingId> - list features for a configured Insteon/X10 device
 Usage: openhab:insteon device listProductData <thingId> - list product data for a configured Insteon/X10 device
 Usage: openhab:insteon device listMissingLinks --all|<thingId> - list missing links for a specific or all configured Insteon devices

@@ -13,8 +13,11 @@
 package org.openhab.binding.insteon.internal.device.database;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Stream;
@@ -51,6 +54,7 @@ public class LinkDB {
     private final Logger logger = LoggerFactory.getLogger(LinkDB.class);
 
     private final InsteonDevice device;
+    private final Map<InsteonAddress, LinkDBEntry> dbes = new HashMap<>();
     private final TreeMap<Integer, LinkDBRecord> records = new TreeMap<>(Collections.reverseOrder());
     private final TreeMap<Integer, LinkDBChange> changes = new TreeMap<>(Collections.reverseOrder());
     private DatabaseStatus status = DatabaseStatus.EMPTY;
@@ -69,6 +73,18 @@ public class LinkDB {
 
     public @Nullable DatabaseManager getDatabaseManager() {
         return Optional.ofNullable(getModem()).map(InsteonModem::getDBM).orElse(null);
+    }
+
+    public List<LinkDBEntry> getEntries() {
+        synchronized (dbes) {
+            return dbes.values().stream().toList();
+        }
+    }
+
+    private LinkDBEntry getOrAddEntry(InsteonAddress address) {
+        synchronized (dbes) {
+            return Objects.requireNonNull(dbes.computeIfAbsent(address, a -> new LinkDBEntry(a)));
+        }
     }
 
     public int getDatabaseDelta() {
@@ -343,8 +359,9 @@ public class LinkDB {
      * @return the previous record if overwritten
      */
     public @Nullable LinkDBRecord addRecord(LinkDBRecord record) {
+        LinkDBRecord prevRecord;
         synchronized (records) {
-            LinkDBRecord prevRecord = records.put(record.getLocation(), record);
+            prevRecord = records.put(record.getLocation(), record);
             // move last record if overwritten by a different record
             if (prevRecord != null && prevRecord.isLast() && !prevRecord.equals(record)) {
                 int location = prevRecord.getLocation() - LinkDBRecord.SIZE;
@@ -354,8 +371,24 @@ public class LinkDB {
                             HexUtils.getHexString(location));
                 }
             }
-            return prevRecord;
         }
+
+        LinkDBEntry dbe = getOrAddEntry(record.getAddress());
+        if (record.isActive()) {
+            if (record.isController()) {
+                dbe.addControllerGroup(record.getGroup());
+            } else if (record.isResponder()) {
+                dbe.addResponderGroup(record.getGroup());
+            }
+        } else {
+            if (record.isController()) {
+                dbe.removeControllerGroup(record.getGroup());
+            } else if (record.isResponder()) {
+                dbe.removeResponderGroup(record.getGroup());
+            }
+        }
+
+        return prevRecord;
     }
 
     /**
