@@ -577,7 +577,7 @@
 		<description>i3 Keypad</description>
 		<model>KP014</model>
 		<vendor>Insteon</vendor>
-		<device-type>DimmableLightingControl_SwitchLinc</device-type>
+		<device-type>DimmableLightingControl_I3Keypad</device-type>
 	</product>
 
 	<!-- Switched Lighting Control (0x02) -->

@@ -406,6 +406,52 @@
 		<default-link name="dimmer" type="controller" group="1" data1="0x03" data2="0x1C" data3="0x01"/>
 	</device-type>
 
+	<device-type name="DimmableLightingControl_I3Keypad">
+		<feature name="dimmer">GenericDimmer</feature>
+		<feature-group name="buttonGroup" type="KeypadButtonStatusGroup">
+			<feature name="buttonB" group="2">KeypadButton</feature>
+			<feature name="buttonC" group="3">KeypadButton</feature>
+			<feature name="buttonD" group="4">KeypadButton</feature>
+		</feature-group>
+		<feature name="eventButtonMain" group="1">GenericButtonEvent</feature>
+		<feature name="eventButtonB" group="2">GenericButtonEvent</feature>
+		<feature name="eventButtonC" group="3">GenericButtonEvent</feature>
+		<feature name="eventButtonD" group="4">GenericButtonEvent</feature>
+		<feature name="beep">Beep</feature>
+		<feature-group name="extDataGroup" type="ExtDataGroup">
+			<feature name="ledBrightness">LEDBrightness</feature>
+			<feature name="rampRate">RampRate</feature>
+			<feature name="onLevel">OnLevel</feature>
+		</feature-group>
+		<feature-group name="extDataGroupButtonB" type="ExtDataGroup" group="2">
+			<feature name="onMaskButtonB">KeypadButtonOnMask</feature>
+			<feature name="offMaskButtonB">KeypadButtonOffMask</feature>
+			<feature name="toggleModeButtonB">KeypadButtonToggleMode</feature>
+		</feature-group>
+		<feature-group name="extDataGroupButtonC" type="ExtDataGroup" group="3">
+			<feature name="onMaskButtonC">KeypadButtonOnMask</feature>
+			<feature name="offMaskButtonC">KeypadButtonOffMask</feature>
+			<feature name="toggleModeButtonC">KeypadButtonToggleMode</feature>
+		</feature-group>
+		<feature-group name="extDataGroupButtonD" type="ExtDataGroup" group="4">
+			<feature name="onMaskButtonD">KeypadButtonOnMask</feature>
+			<feature name="offMaskButtonD">KeypadButtonOffMask</feature>
+			<feature name="toggleModeButtonD">KeypadButtonToggleMode</feature>
+		</feature-group>
+		<feature-group name="opFlagsGroup" type="OpFlagsGroup">
+			<feature name="programLock" bit="0" on="0x00" off="0x01">OpFlags</feature>
+			<feature name="ledTraffic" bit="1" on="0x02" off="0x03">OpFlags</feature>
+			<feature name="resumeDim" bit="2" on="0x04" off="0x05">OpFlags</feature>
+			<feature name="buttonConfig" bit="3" on="0x06" off="0x07">KeypadButtonConfig</feature>
+			<feature name="ledOnOff" bit="4" on="0x09" off="0x08" inverted="true" hidden="true">OpFlags</feature>
+			<feature name="buttonBeep" bit="5" on="0x0A" off="0x0B">OpFlags</feature>
+		</feature-group>
+		<default-link name="dimmer" type="controller" group="1" data1="0x03" data2="0x1C" data3="0x01"/>
+		<default-link name="buttonB" type="controller" group="2" data1="0x03" data2="0x1C" data3="0x02"/>
+		<default-link name="buttonC" type="controller" group="3" data1="0x03" data2="0x1C" data3="0x03"/>
+		<default-link name="buttonD" type="controller" group="4" data1="0x03" data2="0x1C" data3="0x04"/>
+	</device-type>
+
 	<!-- Switched Lighting Control -->
 
 	<device-type name="SwitchedLightingControl">
